@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 品牌色阶：以蓝为主，中性色由 Material 3 基线提供，保证对比度合规 -->
+    <color name="brand_primary">#FF2F6FEB</color>
+    <color name="brand_on_primary">#FFFFFFFF</color>
+    <color name="brand_container">#FFD9E2FF</color>
+    <color name="brand_on_container">#FF001A41</color>
+    <color name="ok_green">#FF1B9E5A</color>
+    <color name="warn_amber">#FFB26A00</color>
+    <color name="err_red">#FFBA1A1A</color>
+</resources>
