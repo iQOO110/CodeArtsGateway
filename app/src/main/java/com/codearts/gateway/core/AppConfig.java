@@ -17,7 +17,7 @@ public final class AppConfig {
     public static final String APP_NAME = "CodeArts 网关";
     // v1.9.10：与 build.gradle 的 versionName 保持一致；此前写死 1.9.4 导致
     // 装新包后 /health 仍报旧号，用户无法确认装的是哪一版
-    public static final String VERSION = "1.9.17";
+    public static final String VERSION = "1.9.18";
     public static final String DEFAULT_ORIGIN = "https://discovery.intern-ai.org.cn";
 
     /**

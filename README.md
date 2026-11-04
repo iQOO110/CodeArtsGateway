@@ -1,6 +1,6 @@
-# CodeArts 网关（CodeArtsGateway）v1.9.17 手机版源码
+# CodeArts 网关（CodeArtsGateway）v1.9.18 手机版源码
 
-CodeArts 网关的完整 Android 源码工程（versionCode 45，versionName 1.9.17），复用同一份网关核心的 Windows 桌面版见 `desktop/`。
+CodeArts 网关的完整 Android 源码工程（versionCode 46，versionName 1.9.18），复用同一份网关核心的 Windows 桌面版见 `desktop/`。
 
 ## 项目简介
 

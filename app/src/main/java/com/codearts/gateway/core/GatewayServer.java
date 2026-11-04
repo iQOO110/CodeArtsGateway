@@ -63,7 +63,7 @@ public final class GatewayServer {
     private final List<McpHub.Server> mcpServers = new ArrayList<>();
     private String mcpCfgSig = "\u0000";
     /** 构建标记：写进诊断文件，便于确认机上装的是哪一版。 */
-    public static final String BUILD_TAG = "v1.9.17+ask-continuation+session-isolate+pending-ttl+balance-diag+readall-full+a14-reply-v3+a15-emptyfile+apple-ui+no-mcp+ask-schema+session-key+login-fullscreen";
+    public static final String BUILD_TAG = "v1.9.18+artifacts-ui+ask-continuation+session-isolate+pending-ttl+balance-diag+readall-full+a14-reply-v3+a15-emptyfile+apple-ui+no-mcp+ask-schema+session-key+login-fullscreen";
 
     private AsyncHttpServer server;
     private volatile boolean running;

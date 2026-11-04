@@ -117,6 +117,9 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.btn_settings).setOnClickListener(v ->
                 startActivity(new Intent(this, SettingsActivity.class)));
 
+        findViewById(R.id.btn_artifacts).setOnClickListener(v ->
+                startActivity(new Intent(this, ArtifactsActivity.class)));
+
         requestNotificationPermission();
     }
 
