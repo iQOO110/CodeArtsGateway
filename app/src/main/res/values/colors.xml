@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Apple 风格色板（取自 Apple DESIGN.md tokens） -->
+    <color name="brand_primary">#FF0066CC</color>
+    <color name="brand_primary_focus">#FF0071E3</color>
+    <color name="brand_on_primary">#FFFFFFFF</color>
+    <color name="brand_container">#FFE8F0FB</color>
+    <color name="brand_on_container">#FF003A75</color>
+
+    <color name="apple_ink">#FF1D1D1F</color>
+    <color name="apple_canvas">#FFFFFFFF</color>
+    <color name="apple_parchment">#FFF5F5F7</color>
+    <color name="apple_pearl">#FFFAFAFC</color>
+    <color name="apple_hairline">#FFE0E0E0</color>
+    <color name="apple_divider">#FFF0F0F0</color>
+    <color name="apple_muted">#FF7A7A7A</color>
+    <color name="apple_muted_80">#FF333333</color>
+
+    <color name="ok_green">#FF34C759</color>
+    <color name="warn_amber">#FFFF9F0A</color>
+    <color name="err_red">#FFFF3B30</color>
+</resources>

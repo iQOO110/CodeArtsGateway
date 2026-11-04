@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 通知栏专用小图标：通知图标只渲染 alpha 通道（白色剪影），
+     用与桌面图标同款的 < / > 括号 + 斜杠流线造型，与 App 视觉一致。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- 左括号 -->
+    <path
+        android:pathData="M8.5,6 L4.5,12 L8.5,18"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <!-- 右括号 -->
+    <path
+        android:pathData="M15.5,6 L19.5,12 L15.5,18"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <!-- 斜杠流线 -->
+    <path
+        android:pathData="M13.4,4.5 L10.6,19.5"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="round" />
+</vector>

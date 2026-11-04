@@ -57,7 +57,7 @@ public final class GatewayServer {
     private final List<McpHub.Server> mcpServers = new ArrayList<>();
     private String mcpCfgSig = "\u0000";
     /** 构建标记：写进诊断文件，便于确认机上装的是哪一版。 */
-    public static final String BUILD_TAG = "v1.9.13+a14-reply-v3+a15-emptyfile+apple-ui+no-mcp+ask-schema+session-key+login-fullscreen";
+    public static final String BUILD_TAG = "v1.9.15+balance-diag+readall-full+a14-reply-v3+a15-emptyfile+apple-ui+no-mcp+ask-schema+session-key+login-fullscreen";
 
     private AsyncHttpServer server;
     private volatile boolean running;
@@ -2157,17 +2157,21 @@ public final class GatewayServer {
     /** 统一取出 questions 数组；单问形态则包成一条。 */
     private static void clampOptions(JSONArray qs, int maxOpts) {
         if (qs == null) return;
-        for (int i = 0; i < qs.length(); i++) {
-            JSONObject q = qs.optJSONObject(i);
-            if (q == null) continue;
-            JSONArray opts = q.optJSONArray("options");
-            if (opts != null && opts.length() > maxOpts) {
-                JSONArray clamped = new JSONArray();
-                for (int j = 0; j < maxOpts; j++) {
-                    clamped.put(opts.get(j));
+        try {
+            for (int i = 0; i < qs.length(); i++) {
+                JSONObject q = qs.optJSONObject(i);
+                if (q == null) continue;
+                JSONArray opts = q.optJSONArray("options");
+                if (opts != null && opts.length() > maxOpts) {
+                    JSONArray clamped = new JSONArray();
+                    for (int j = 0; j < maxOpts; j++) {
+                        clamped.put(opts.get(j));
+                    }
+                    q.put("options", clamped);
                 }
-                q.put("options", clamped);
             }
+        } catch (org.json.JSONException e) {
+            LogRing.log("ask", "裁剪选项失败: " + e);
         }
     }
 

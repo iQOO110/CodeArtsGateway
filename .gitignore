@@ -17,3 +17,6 @@ local.properties
 *.log
 *.tmp
 node_modules/
+# 构建配置需要纳入版本管理
+!gradle.properties
+!gradle/wrapper/gradle-wrapper.properties

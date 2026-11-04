@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 背景：蓝紫对角渐变，呼应码道官网配色 -->
+    <path android:pathData="M0,0h108v108h-108z">
+        <gradient
+            android:startX="0"
+            android:startY="0"
+            android:endX="108"
+            android:endY="108"
+            android:type="linear">
+            <item android:offset="0.0" android:color="#FF4353FF" />
+            <item android:offset="0.55" android:color="#FF6C3EF5" />
+            <item android:offset="1.0" android:color="#FF9B4DFF" />
+        </gradient>
+    </path>
+
+    <!-- 代码括号 < > ：左 -->
+    <path
+        android:pathData="M38,38 L26,54 L38,70"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="7"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
+    <!-- 代码括号：右 -->
+    <path
+        android:pathData="M70,38 L82,54 L70,70"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="7"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
+    <!-- 中间的「道」：斜杠流线（/）带渐变高亮，像代码中的路径 -->
+    <path
+        android:pathData="M59,32 L49,76"
+        android:strokeColor="#FF7EF2C8"
+        android:strokeWidth="7"
+        android:strokeLineCap="round" />
+
+    <!-- 底部小点：码道终端提示符 -->
+    <path
+        android:pathData="M42,83 h4"
+        android:strokeColor="#FFFFD166"
+        android:strokeWidth="4"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M52,83 h14"
+        android:strokeColor="#66FFFFFF"
+        android:strokeWidth="4"
+        android:strokeLineCap="round" />
+</vector>

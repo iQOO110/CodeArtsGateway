@@ -172,14 +172,13 @@ public final class DevCloudClient {
         }
         try (InputStream stream = in) {
             java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
-            byte[] buf = new byte[4096];
+            byte[] buf = new byte[8192];
             int n;
-            while ((n = stream.read(buf)) > 0) {
+            // 必须读到 EOF：HTTP 分块响应在块边界处 available() 常为 0，
+            // 按 available() 提前退出会截断模型列表/额度等大 JSON，导致解析失败。
+            // 阻塞由 HttpURLConnection.setReadTimeout 兜底。
+            while ((n = stream.read(buf)) != -1) {
                 bos.write(buf, 0, n);
-                if (stream.available() == 0) {
-                    // 在没有 EOF 的 HTTP 流中，读完可用字节立即跳出，防止持续阻塞 300 秒！
-                    break;
-                }
             }
             return bos.toByteArray();
         }
@@ -1667,6 +1666,8 @@ public final class DevCloudClient {
     public static final class Balance {
         public boolean ok;
         public String message = "";
+        /** 上游原始响应，供诊断落盘定位 invalid channel / 权限类错误。 */
+        public String raw = "";
         public Long usedAmount;
         public Long totalQuota;
         public Long balance() {
@@ -1842,7 +1843,8 @@ public final class DevCloudClient {
         Resp r = request(cookie, "GET",
                 BASE + "/codebaseservice/v1/cloudagent/benefit/tokens/balance", null, null);
         String raw = r.text();
-        LogRing.log("balance", "HTTP " + r.code + " " + trim(raw, 200));
+        b.raw = raw == null ? "" : raw;
+        LogRing.log("balance", "HTTP " + r.code + " " + trim(raw, 600));
         if (r.code != 200) {
             b.message = humanError(r.code, raw);
             return b;
