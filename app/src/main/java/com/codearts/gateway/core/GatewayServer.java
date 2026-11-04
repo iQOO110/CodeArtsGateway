@@ -42,6 +42,12 @@ public final class GatewayServer {
     private final AtomicLong requestCounter = new AtomicLong();
     private final Map<String, Long> sessions = new ConcurrentHashMap<>();
     private final Map<String, String> devCloudSessions = new ConcurrentHashMap<>();
+    /** 客户端基础会话键 → 当前实际使用的码道会话键（检测到新对话时追加 #n）。 */
+    private final Map<String, String> activeSessionKeys = new ConcurrentHashMap<>();
+    /** 会话键 → 上一轮 assistant 回复指纹，用于判断客户端是否开了新对话。 */
+    private final Map<String, String> lastAssistantByKey = new ConcurrentHashMap<>();
+    private final java.util.concurrent.atomic.AtomicLong sessionSeq =
+            new java.util.concurrent.atomic.AtomicLong();
     /** 会话失败时间戳（下次 ensureSession 时废弃重建，v1.9.7）。 */
     private final Map<String, Long> devCloudSessionFailed = new ConcurrentHashMap<>();
     /** A15：产物下载 token → 本地缓存文件（供 agent 通过网关 URL 拉取）。 */
@@ -57,7 +63,7 @@ public final class GatewayServer {
     private final List<McpHub.Server> mcpServers = new ArrayList<>();
     private String mcpCfgSig = "\u0000";
     /** 构建标记：写进诊断文件，便于确认机上装的是哪一版。 */
-    public static final String BUILD_TAG = "v1.9.15+balance-diag+readall-full+a14-reply-v3+a15-emptyfile+apple-ui+no-mcp+ask-schema+session-key+login-fullscreen";
+    public static final String BUILD_TAG = "v1.9.16+session-isolate+pending-ttl+balance-diag+readall-full+a14-reply-v3+a15-emptyfile+apple-ui+no-mcp+ask-schema+session-key+login-fullscreen";
 
     private AsyncHttpServer server;
     private volatile boolean running;
@@ -238,6 +244,9 @@ public final class GatewayServer {
         devCloudSessions.clear();
         devCloudSessionFailed.clear();
         pendingUpstreamQuestions.clear();
+        pendingQuestionAt.clear();
+        activeSessionKeys.clear();
+        lastAssistantByKey.clear();
         for (Continuation c : continuations.values()) {
             c.abandon();
         }
@@ -411,6 +420,7 @@ public final class GatewayServer {
             devCloudSessionFailed.remove(sessionKey);
             sessions.remove(sessionKey);
             pendingUpstreamQuestions.remove(sessionKey);
+            pendingQuestionAt.remove(sessionKey);
             Continuation old = continuations.remove(sessionKey);
             if (old != null) {
                 old.abandon();
@@ -419,16 +429,11 @@ public final class GatewayServer {
         // 上一轮码道提问：先尝试走官方「应答提问」接口（A14），失败再回退为
         // 「原提问 + 用户回复」普通消息回灌，保证老链路仍可用。
         String pendingReply = content;
-        String pendingQ = pendingUpstreamQuestions.remove(sessionKey);
+        String pendingQ = takePendingQuestion(sessionKey);
         String matchedCallId = extractToolCallId(openai);
         if (!matchedCallId.isEmpty() && sPendingQuestionsByCallId.containsKey(matchedCallId)) {
             pendingQ = sPendingQuestionsByCallId.remove(matchedCallId);
             LogRing.log("req#" + n, "根据 tool_call_id 精准匹配待答复题目: " + matchedCallId);
-        }
-        if (pendingQ == null && sLatestPendingQ != null) {
-            pendingQ = sLatestPendingQ;
-            sLatestPendingQ = null;
-            LogRing.log("req#" + n, "命中全局最新提问兜底，成功跨轮次接应待答题目");
         }
         if (pendingQ != null && pendingQ.length() > 0 && !openai.optBoolean("new_chat", false)) {
             // agent 的提问答案可能在 role=tool 结果里，优先取它，避免把原始问题当答案
@@ -1697,7 +1702,7 @@ public final class GatewayServer {
             // v1.9.10：上一轮码道停在 ask_user 提问处等答案。本轮 query 里夹带
             // 「原提问 JSON + 用户新消息」回灌，码道才知道该按哪个选项继续。
             // 只在首轮回灌一次，回灌后清掉（避免下轮重复带旧提问）
-            String pendingQ = pendingUpstreamQuestions.remove(sessionKey);
+            String pendingQ = takePendingQuestion(sessionKey);
             if (pendingQ != null && pendingQ.length() > 0 && !openai.optBoolean("new_chat", false)) {
                 String userMsg = query.toString();
                 query.setLength(0);
@@ -1965,7 +1970,7 @@ public final class GatewayServer {
         }
         if (sessionKey != null) {
             // 存到会话级 pending，下一轮请求进来时和"用户新回复"一起回灌给码道
-            pendingUpstreamQuestions.put(sessionKey, q);
+            putPendingQuestion(sessionKey, q);
         }
         if (queryAppend != null) {
             queryAppend.append("\n[码道提问] ").append(q);
@@ -2252,9 +2257,10 @@ public final class GatewayServer {
      *  下一轮请求进来时把「用户回复 + 原提问」一起回灌给码道，码道才知道该按哪个选项继续。
      *  key=网关 sessionKey（即 devCloudSessions 的 key） */
     private final Map<String, String> pendingUpstreamQuestions = new ConcurrentHashMap<>();
+    private final Map<String, Long> pendingQuestionAt = new ConcurrentHashMap<>();
+    private static final long PENDING_TTL_MS = 30 * 60 * 1000L;
     private static final Map<String, String> sPendingQuestionsByCallId = new ConcurrentHashMap<>();
     private static final Map<String, String> sSessionIdByCallId = new ConcurrentHashMap<>();
-    private static volatile String sLatestPendingQ = null;
     private static volatile String sLatestSessionId = null;
     private static volatile String sLatestSessionKey = null;
 
@@ -2286,7 +2292,8 @@ public final class GatewayServer {
             sid = null;
         }
         if (sid == null || sid.isEmpty()) {
-            sid = DevCloudClient.createSession(cookie, model);
+            // 新 sessionKey 必须新建上游会话：复用“最近活跃会话”会让不同客户端对话串台
+            sid = DevCloudClient.createSession(cookie, model, false);
             devCloudSessions.put(sessionKey, sid);
             LogRing.log("req#" + n, "DevCloud 新会话 " + sid);
         }
@@ -2604,10 +2611,9 @@ public final class GatewayServer {
                         sse.data(ToolShim.toolCallArgsChunk(id, model, idx, args));
                         askSent[0] = true;
                         if (sessionKey != null) {
-                            pendingUpstreamQuestions.put(sessionKey, raw.toString());
+                            putPendingQuestion(sessionKey, raw.toString());
                             sPendingQuestionsByCallId.put(callId, raw.toString());
                             sSessionIdByCallId.put(callId, sid);
-                            sLatestPendingQ = raw.toString();
                             sLatestSessionId = sid;
                             sLatestSessionKey = sessionKey;
                             Continuation old = continuations.put(sessionKey, new Continuation());
@@ -2871,11 +2877,51 @@ public final class GatewayServer {
      * 会话键：优先显式会话级标识（header / body / metadata），
      * 最后按「模型 + 用户 + 首条消息」派生。
      *
-     * <p>注意：{@code body.user} 是「终端用户」而不是「会话」，不能单独当 key，
-     * 否则同一用户新建的所有对话都会复用同一个码道会话（表现为新对话串到旧对话）。
+     * <p>派生键会检测客户端是否开了新对话：上一轮 assistant 回复不在本轮历史里，
+     * 就分配 {@code #n} 后缀的新键，避免新对话复用旧码道会话。
      */
-    private static String sessionKey(AsyncHttpServerRequest req, JSONObject openai) {
-        // 1) 会话级 header（req 可能为 null：内部工具路径没有 HTTP 请求对象）
+    private String sessionKey(AsyncHttpServerRequest req, JSONObject openai) {
+        String explicit = explicitSessionKey(req, openai);
+        if (!explicit.isEmpty()) {
+            lastAssistantByKey.put(explicit, lastAssistantText(openai));
+            return explicit;
+        }
+        String base = derivedSessionKey(req, openai);
+        if (openai.optBoolean("new_chat", false)) {
+            String prev = activeSessionKeys.get(base);
+            if (prev != null) {
+                pendingUpstreamQuestions.remove(prev);
+                pendingQuestionAt.remove(prev);
+            }
+            String nk = base + "#" + sessionSeq.incrementAndGet();
+            activeSessionKeys.put(base, nk);
+            lastAssistantByKey.put(nk, lastAssistantText(openai));
+            LogRing.log("session", "客户端新建对话，分配独立会话键 " + nk);
+            return nk;
+        }
+        String active = activeSessionKeys.get(base);
+        if (active == null) {
+            activeSessionKeys.put(base, base);
+            lastAssistantByKey.put(base, lastAssistantText(openai));
+            return base;
+        }
+        String lastAsst = lastAssistantByKey.get(active);
+        boolean continued = lastAsst == null || lastAsst.isEmpty()
+                || containsAssistantText(openai, lastAsst);
+        if (!continued) {
+            String nk = base + "#" + sessionSeq.incrementAndGet();
+            activeSessionKeys.put(base, nk);
+            lastAssistantByKey.put(nk, lastAssistantText(openai));
+            LogRing.log("session", "检测到客户端新对话（历史不含上轮回复），会话键 "
+                    + active + " → " + nk);
+            return nk;
+        }
+        lastAssistantByKey.put(active, lastAssistantText(openai));
+        return active;
+    }
+
+    /** 显式会话标识（header / body / metadata）；没有则返回空串。 */
+    private static String explicitSessionKey(AsyncHttpServerRequest req, JSONObject openai) {
         if (req != null) {
             for (String h : new String[]{"X-Session-Id", "X-Conversation-Id",
                     "X-Chat-Id", "X-Thread-Id", "session-id", "conversation-id", "x-session-id"}) {
@@ -2885,7 +2931,6 @@ public final class GatewayServer {
                 }
             }
         }
-        // 2) body 里的会话级字段（不同 agent 命名不一）
         for (String k : new String[]{"conversation_id", "conversationId", "session_id",
                 "sessionId", "chat_id", "chatId", "thread_id", "threadId", "prompt_cache_key"}) {
             String v = openai.optString(k, "");
@@ -2893,7 +2938,6 @@ public final class GatewayServer {
                 return v.trim();
             }
         }
-        // 3) metadata 里的会话 id
         JSONObject meta = openai.optJSONObject("metadata");
         if (meta != null) {
             for (String k : new String[]{"conversation_id", "session_id", "chat_id", "thread_id"}) {
@@ -2903,11 +2947,14 @@ public final class GatewayServer {
                 }
             }
         }
-        // 4) 网关自己调码道做元任务（如会话标题生成）走独立会话
+        return "";
+    }
+
+    /** 回退会话键：模型 + 终端用户 + 首条用户消息（三者组合区分同用户的不同对话）。 */
+    private static String derivedSessionKey(AsyncHttpServerRequest req, JSONObject openai) {
         if (req != null && "1".equals(req.getHeaders().get("X-CodeArts-Meta"))) {
             return "meta:" + Integer.toHexString(openai.toString().hashCode());
         }
-        // 5) 回退：模型 + 终端用户 + 首条用户消息，三者组合才能区分同一用户的不同对话
         String u = openai.optString("user", "").trim();
         String firstUser = "";
         JSONArray messages = openai.optJSONArray("messages");
@@ -2924,6 +2971,69 @@ public final class GatewayServer {
                 + (u.isEmpty() ? "" : u + "|")
                 + DevCloudClient.trim(firstUser, 80);
         return "c" + Integer.toHexString(seed.hashCode());
+    }
+
+    /** 本轮历史里最后一条 assistant 回复的指纹（截断存储）。 */
+    private static String lastAssistantText(JSONObject openai) {
+        JSONArray messages = openai == null ? null : openai.optJSONArray("messages");
+        if (messages == null) {
+            return "";
+        }
+        for (int i = messages.length() - 1; i >= 0; i--) {
+            JSONObject m = messages.optJSONObject(i);
+            if (m == null || !"assistant".equals(m.optString("role"))) {
+                continue;
+            }
+            String t = ProtocolAdapter.flattenContent(m.opt("content"));
+            if (!t.trim().isEmpty()) {
+                return DevCloudClient.trim(t, 60);
+            }
+        }
+        return "";
+    }
+
+    /** 本轮历史里是否还带着上一轮 assistant 回复（判断对话是否延续）。 */
+    private static boolean containsAssistantText(JSONObject openai, String needle) {
+        JSONArray messages = openai == null ? null : openai.optJSONArray("messages");
+        if (messages == null || needle == null || needle.isEmpty()) {
+            return false;
+        }
+        String probe = needle.length() > 40 ? needle.substring(0, 40) : needle;
+        for (int i = 0; i < messages.length(); i++) {
+            JSONObject m = messages.optJSONObject(i);
+            if (m == null || !"assistant".equals(m.optString("role"))) {
+                continue;
+            }
+            if (ProtocolAdapter.flattenContent(m.opt("content")).contains(probe)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** 取会话级待答提问；超过 TTL 视为过期并丢弃，避免跨对话串题。 */
+    private String takePendingQuestion(String sessionKey) {
+        if (sessionKey == null || sessionKey.isEmpty()) {
+            return null;
+        }
+        String q = pendingUpstreamQuestions.remove(sessionKey);
+        Long at = pendingQuestionAt.remove(sessionKey);
+        if (q == null) {
+            return null;
+        }
+        if (at == null || System.currentTimeMillis() - at > PENDING_TTL_MS) {
+            LogRing.log("session", "待答提问已过期，丢弃: " + sessionKey);
+            return null;
+        }
+        return q;
+    }
+
+    private void putPendingQuestion(String sessionKey, String json) {
+        if (sessionKey == null || sessionKey.isEmpty() || json == null) {
+            return;
+        }
+        pendingUpstreamQuestions.put(sessionKey, json);
+        pendingQuestionAt.put(sessionKey, System.currentTimeMillis());
     }
 
     private long resolveChatId(String sessionKey, JSONObject openai) {

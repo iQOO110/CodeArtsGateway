@@ -188,15 +188,33 @@ public final class DevCloudClient {
 
     /** 创建会话，返回 session_id；失败抛异常。 */
     public static String createSession(String cookie, String modelId) throws Exception {
-        // 优先复用云端已有的活跃会话，避免频繁建会话触发华为云“并发会话数已达上限(3个)”频率限制
-        String existing = fetchLatestActiveSession(cookie);
-        if (existing != null && !existing.isEmpty()) {
-            return existing;
+        return createSession(cookie, modelId, true);
+    }
+
+    /**
+     * @param allowReuse true 时复用云端最近活跃会话（旧行为）；新对话必须传 false，
+     *                   否则不同客户端对话会共用同一个码道会话，上下文互相串台。
+     */
+    public static String createSession(String cookie, String modelId, boolean allowReuse)
+            throws Exception {
+        if (allowReuse) {
+            String existing = fetchLatestActiveSession(cookie);
+            if (existing != null && !existing.isEmpty()) {
+                return existing;
+            }
         }
         Resp r = request(cookie, "POST", BASE + "/v1/cloudagent/sessions", "{}", null);
         String raw = r.text();
         if (r.code != 200) {
-            throw new IllegalStateException("建会话 HTTP " + r.code + ": " + trim(raw, 200));
+            String detail = trim(raw, 300);
+            String low = detail.toLowerCase(java.util.Locale.ROOT);
+            if (detail.contains("并发") || detail.contains("上限")
+                    || low.contains("concurrent") || low.contains("session limit")
+                    || low.contains("too many") || low.contains("max session")) {
+                throw new IllegalStateException("码道并发会话数已达上限（通常为 3 个），"
+                        + "请先到码道网页关闭不再使用的会话后重试。上游原文：" + detail);
+            }
+            throw new IllegalStateException("建会话 HTTP " + r.code + ": " + detail);
         }
         if (looksLikeHtml(raw)) {
             throw new IllegalStateException("建会话返回了登录页 HTML，Cookie 已失效，请在 Ego 浏览器中刷新页面重试");
