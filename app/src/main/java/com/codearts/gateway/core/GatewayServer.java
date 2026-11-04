@@ -63,7 +63,7 @@ public final class GatewayServer {
     private final List<McpHub.Server> mcpServers = new ArrayList<>();
     private String mcpCfgSig = "\u0000";
     /** 构建标记：写进诊断文件，便于确认机上装的是哪一版。 */
-    public static final String BUILD_TAG = "v1.9.16+session-isolate+pending-ttl+balance-diag+readall-full+a14-reply-v3+a15-emptyfile+apple-ui+no-mcp+ask-schema+session-key+login-fullscreen";
+    public static final String BUILD_TAG = "v1.9.17+ask-continuation+session-isolate+pending-ttl+balance-diag+readall-full+a14-reply-v3+a15-emptyfile+apple-ui+no-mcp+ask-schema+session-key+login-fullscreen";
 
     private AsyncHttpServer server;
     private volatile boolean running;
@@ -1955,6 +1955,15 @@ public final class GatewayServer {
                                            SseWriter sse, String model, long n,
                                            StringBuilder queryAppend,
                                            String sessionKey, boolean stream) {
+        return forwardUpstreamQuestion(eventName, raw, sse, model, n, queryAppend,
+                sessionKey, stream, null);
+    }
+
+    private String forwardUpstreamQuestion(String eventName, JSONObject raw,
+                                           SseWriter sse, String model, long n,
+                                           StringBuilder queryAppend,
+                                           String sessionKey, boolean stream,
+                                           Continuation cont) {
         if (raw == null || eventName == null) {
             return null;
         }
@@ -1964,9 +1973,14 @@ public final class GatewayServer {
         String q = raw.toString(); // 完整提问 JSON（含 question_id / options）原样带给客户端与下一轮回灌
         LogRing.log("req#" + n, "上游提问事件 " + eventName + " → 转发给客户端: "
                 + DevCloudClient.trim(q, 200));
-        if (sse != null && stream) {
-            sse.data(ProtocolAdapter.chunk(ProtocolAdapter.newCompletionId(), model,
-                    deltaJson("\n\n[码道提问] " + q + "\n（请在你的下一条回复中直接给出答案，码道会据此继续）\n"), null));
+        if (stream) {
+            String frame = ProtocolAdapter.chunk(ProtocolAdapter.newCompletionId(), model,
+                    deltaJson("\n\n[码道提问] " + q + "\n（请在你的下一条回复中直接给出答案，码道会据此继续）\n"), null);
+            if (cont != null && cont.sendRaw(frame)) {
+                // 已接续答管道，直接写当前下游
+            } else if (sse != null) {
+                sse.data(frame);
+            }
         }
         if (sessionKey != null) {
             // 存到会话级 pending，下一轮请求进来时和"用户新回复"一起回灌给码道
@@ -2587,12 +2601,17 @@ public final class GatewayServer {
 
                 @Override
                 public void onEvent(String eventName, JSONObject raw) {
-                    if (ended[0]) {
+                    // 续答阶段仍可能再次提问：只有提问类事件继续处理，其余忽略，
+                    // 否则第二轮提问会被 ended[0] 直接吞掉。
+                    if (ended[0] && !isAskEvent(eventName)
+                            && (raw == null || !raw.has("question_id"))) {
                         return;
                     }
-                    // 上游每次产生任何事件，都向下游发送空增量保活，彻底打通长程任务耗时
-                    sse.comment("event: " + eventName);
-                    sse.data(ProtocolAdapter.chunk(id, model, deltaJson(""), null));
+                    if (!ended[0]) {
+                        // 上游每次产生任何事件，都向下游发送空增量保活，彻底打通长程任务耗时
+                        sse.comment("event: " + eventName);
+                        sse.data(ProtocolAdapter.chunk(id, model, deltaJson(""), null));
+                    }
                     noteEvent(eventName, raw, n, seenEvents, eventCounts);
                     if ("done".equals(eventName) && raw != null) {
                         doneRaw[0] = raw; // A15：收尾时据此透传码道产物
@@ -2604,11 +2623,12 @@ public final class GatewayServer {
                         String args = buildAskArguments(askSpec, raw);
                         String callId = extractCallId(raw);
                         int idx = 900; // 避开 ToolShim 从 0 起的索引
-                        sse.data(ToolShim.toolCallStartChunk(id, model, idx,
-                                new ToolShim.Call(
-                                        callId,
-                                        askSpec.name, args)));
-                        sse.data(ToolShim.toolCallArgsChunk(id, model, idx, args));
+                        // 第一轮提问时 cont[0] 为空，写原始 SSE；续答中的第二轮提问
+                        // 必须写已经接上的 continuation SSE，否则会写到已关闭的连接。
+                        Continuation current = cont[0];
+                        emitFrame(current, ToolShim.toolCallStartChunk(id, model, idx,
+                                new ToolShim.Call(callId, askSpec.name, args)));
+                        emitFrame(current, ToolShim.toolCallArgsChunk(id, model, idx, args));
                         askSent[0] = true;
                         if (sessionKey != null) {
                             putPendingQuestion(sessionKey, raw.toString());
@@ -2616,18 +2636,21 @@ public final class GatewayServer {
                             sSessionIdByCallId.put(callId, sid);
                             sLatestSessionId = sid;
                             sLatestSessionKey = sessionKey;
-                            Continuation old = continuations.put(sessionKey, new Continuation());
-                            if (old != null) {
-                                old.abandon();
-                            }
-                            cont[0] = continuations.get(sessionKey);
                         }
                         LogRing.log("req#" + n, "码道提问 → tool_calls: " + askSpec.name
                                 + " args=" + DevCloudClient.trim(args, 160));
                         ended[0] = true;
-                        sse.data(ProtocolAdapter.chunk(id, model, "{}", "tool_calls"));
-                        sse.data("[DONE]");
-                        sse.close();
+                        emitFrame(current, ProtocolAdapter.chunk(id, model, "{}", "tool_calls"));
+                        closeCurrentStream(current);
+                        if (sessionKey != null) {
+                            // 下一轮用户回答要接的是新管道，不能复用已经收尾的 current
+                            Continuation next = new Continuation();
+                            continuations.put(sessionKey, next);
+                            if (current != null) {
+                                current.abandon();
+                            }
+                            cont[0] = next;
+                        }
                         try {
                             com.koushikdutta.async.AsyncSocket rawSock = res.getSocket();
                             if (rawSock != null) {
@@ -2636,7 +2659,27 @@ public final class GatewayServer {
                         } catch (Throwable ignore) {}
                         return;
                     }
-                    forwardUpstreamQuestion(eventName, raw, sse, model, n, null, sessionKey, true);
+                    forwardUpstreamQuestion(eventName, raw, sse, model, n, null,
+                            sessionKey, true, cont[0]);
+                }
+
+                private void emitFrame(Continuation target, String frame) {
+                    if (target == null || !target.sendRaw(frame)) {
+                        sse.data(frame);
+                    }
+                }
+
+                private void closeCurrentStream(Continuation target) {
+                    if (target != null && target.isAttached()) {
+                        target.closeAttached();
+                    } else {
+                        try {
+                            sse.data("[DONE]");
+                            sse.close();
+                        } catch (Throwable ignore) {
+                            // 已关闭
+                        }
+                    }
                 }
 
                 @Override
@@ -2654,7 +2697,7 @@ public final class GatewayServer {
                 public void onDone(boolean ok, String error) {
                     if (ended[0]) {
                         Continuation c = cont[0];
-                        if (c != null) {
+                        if (c != null && c.isAttached()) {
                             c.finish(ok, error);
                             LogRing.log("req#" + n, "提问后原流结束，续答已交接");
                         } else {
@@ -3250,6 +3293,37 @@ public final class GatewayServer {
 
         synchronized boolean isDone() {
             return done || abandoned;
+        }
+
+        /** 当前是否已经接到下游 SSE（可以立即写出帧）。 */
+        synchronized boolean isAttached() {
+            return sse != null && !done && !abandoned;
+        }
+
+        /** 向已接上的下游写一帧；未接上时返回 false，由调用方决定是否缓冲。 */
+        synchronized boolean sendRaw(String frame) {
+            if (frame == null || sse == null || done || abandoned) {
+                return false;
+            }
+            try {
+                sse.data(frame);
+                return true;
+            } catch (Throwable t) {
+                return false;
+            }
+        }
+
+        /** 提问收尾：只发 [DONE] 并关闭当前 SSE，不改变 finish_reason。 */
+        synchronized void closeAttached() {
+            if (sse != null) {
+                try {
+                    sse.data("[DONE]");
+                    sse.close();
+                } catch (Throwable ignore) {
+                    // 已关闭
+                }
+                sse = null;
+            }
         }
 
         synchronized void delta(String text) {
