@@ -1,0 +1,19 @@
+﻿# Build & Dist
+**/build/
+**/dist/
+*.class
+*.jar
+*.apk
+*.zip
+*.tar
+
+# Local Config & Secrets
+**/*.properties
+**/*.local.json
+.gradle/
+local.properties
+
+# Logs & Temp
+*.log
+*.tmp
+node_modules/

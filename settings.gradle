@@ -1,0 +1,38 @@
+pluginManagement {
+    repositories {
+        maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/public' }
+        google()
+        mavenCentral()
+    }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/public' }
+        google()
+        mavenCentral()
+    }
+}
+rootProject.name = "CodeArtsGateway"
+
+// app 是 Android 模块，只有本机存在 Android SDK 时才纳入构建；
+// desktop 是纯 JVM 模块，无 SDK 也能单独构建（见 desktop/build.gradle）。
+def sdkDir = System.getenv('ANDROID_HOME')
+def lp = file('local.properties')
+if (lp.exists()) {
+    def p = new Properties()
+    lp.withInputStream { p.load(it) }
+    def configured = p.getProperty('sdk.dir')
+    if (configured != null && !configured.isEmpty()) {
+        sdkDir = configured
+    }
+}
+if (sdkDir != null && file(sdkDir).exists()) {
+    include ':app'
+} else {
+    logger.lifecycle('未找到 Android SDK，只构建 :desktop（Windows 版）。')
+}
+include ':desktop'

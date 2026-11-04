@@ -1,0 +1,47 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+// Windows 桌面版：复用 app 模块的网关核心（排除 Android UI），
+// 由 desktop/src/main/java/android/** 提供最小可运行的 Android 桩。
+sourceSets {
+    main {
+        java {
+            srcDirs = ['src/main/java', '../app/src/main/java']
+            exclude 'com/codearts/gateway/ui/**'
+        }
+    }
+}
+
+dependencies {
+    implementation files('libs/androidasync-3.1.0.jar', 'libs/json-20240303.jar')
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+application {
+    mainClass = 'com.codearts.gateway.desktop.Main'
+}
+
+tasks.register('fatJar', Jar) {
+    dependsOn classes
+    archiveFileName = 'codearts-gateway-desktop.jar'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    manifest {
+        attributes('Main-Class': 'com.codearts.gateway.desktop.Main')
+    }
+    from sourceSets.main.output
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+    exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA', 'META-INF/versions/**'
+}
+
+tasks.named('build') {
+    dependsOn 'fatJar'
+}
