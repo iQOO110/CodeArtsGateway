@@ -64,7 +64,9 @@ public final class ArtifactStore {
                 ContentValues done = new ContentValues();
                 done.put(MediaStore.Downloads.IS_PENDING, 0);
                 cr.update(uri, done, null, null);
-                return "/sdcard/" + Environment.DIRECTORY_DOWNLOADS + "/" + dir + "/" + name;
+                String path = "/sdcard/" + Environment.DIRECTORY_DOWNLOADS + "/" + dir + "/" + name;
+                ArtifactIndex.add(ctx, path, name, data.length, sessionId, uri.toString(), mime);
+                return path;
             } catch (Throwable t) {
                 LogRing.log("artifact", "保存到下载目录失败: " + t);
             }
@@ -83,6 +85,7 @@ public final class ArtifactStore {
                 fos.write(data);
                 fos.flush();
             }
+            ArtifactIndex.add(ctx, f.getAbsolutePath(), name, data.length, sessionId, "", mime);
             return f.getAbsolutePath();
         } catch (Throwable t) {
             LogRing.log("artifact", "保存产物失败: " + t);

@@ -10,6 +10,7 @@ sourceSets {
         java {
             srcDirs = ['src/main/java', '../app/src/main/java']
             exclude 'com/codearts/gateway/ui/**'
+            exclude 'com/codearts/gateway/service/**'
         }
     }
 }

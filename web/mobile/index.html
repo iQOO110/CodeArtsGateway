@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CodeArts 网关 · 手机端</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%230B57D0'/%3E%3Cpath d='M7 12h10M12 7v10' stroke='white' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../src/res/tokens.css">
+<link rel="stylesheet" href="../src/res/base.css">
+<link rel="stylesheet" href="../src/res/components.css">
+<link rel="stylesheet" href="../src/mobile/layout.css">
+</head>
+<body data-page="home">
+
+<div class="m-shell">
+  <header class="m-topbar">
+    <button class="m-back" id="mBack" hidden aria-label="返回总览">
+      <svg viewBox="0 0 24 24"><path d="M15 19 8 12l7-7"/></svg>
+    </button>
+    <div class="m-title">
+      <span class="m-crumb">CodeArts Gateway</span>
+      <h1 id="pageTitle">总览</h1>
+    </div>
+    <div class="m-state">
+      <span class="dot is-off" id="railDot2"></span>
+      <span id="railState2">未运行</span>
+    </div>
+  </header>
+
+  <main class="m-content" id="scrollRoot">
+    <div class="page-head">
+      <p id="pageLede">运行状态、接入地址与快捷操作，一屏掌握网关。</p>
+    </div>
+    <div id="view"></div>
+    <footer class="page-foot">
+      <span>CodeArts Gateway v1.9.28 · Mobile</span>
+      <span>与 Windows 端共享业务层</span>
+    </footer>
+  </main>
+
+  <nav class="m-tabs" id="mobileNav">
+    <button class="m-tab is-active" data-nav="home">
+      <span class="m-tab-icon"><svg viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z"/></svg></span>
+      <span>总览</span>
+    </button>
+    <button class="m-tab" data-nav="models">
+      <span class="m-tab-icon"><svg viewBox="0 0 24 24"><path d="M12 3 3 8l9 5 9-5-9-5z"/><path d="M3 12l9 5 9-5M3 16l9 5 9-5"/></svg></span>
+      <span>模型</span>
+    </button>
+    <button class="m-tab" data-nav="login">
+      <span class="m-tab-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.2"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></svg></span>
+      <span>登录</span>
+    </button>
+    <button class="m-tab" data-nav="diag">
+      <span class="m-tab-icon"><svg viewBox="0 0 24 24"><path d="M3 12h3l2.5-6 3.5 12 2.5-6H21"/></svg></span>
+      <span>诊断</span>
+    </button>
+    <button class="m-tab" data-nav="artifacts">
+      <span class="m-tab-icon"><svg viewBox="0 0 24 24"><path d="M3.5 8.5h5l1.6 2h10.4v8a1.5 1.5 0 0 1-1.5 1.5H5a1.5 1.5 0 0 1-1.5-1.5z"/></svg></span>
+      <span>产物</span>
+    </button>
+    <button class="m-tab" data-nav="settings">
+      <span class="m-tab-icon"><svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2.2"/><circle cx="10" cy="17" r="2.2"/></svg></span>
+      <span>设置</span>
+    </button>
+  </nav>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="modal-layer" id="modalLayer" hidden></div>
+
+<script src="../src/core/data.js"></script>
+<script src="../src/core/native.js"></script>
+<script src="../src/core/state.js"></script>
+<script src="../src/core/storage.js"></script>
+<script src="../src/res/icons.js"></script>
+<script src="../src/service/gateway.js"></script>
+<script src="../src/ui/components.js"></script>
+<script src="../src/ui/pages.js"></script>
+<script src="../src/ui/inspector.js"></script>
+<script src="../src/ui/app.js"></script>
+<script src="../src/mobile/app.js"></script>
+</body>
+</html>

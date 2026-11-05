@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CodeArts 网关 · 选择端</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%230B57D0'/%3E%3Cpath d='M7 12h10M12 7v10' stroke='white' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --primary: #0B57D0;
+    --container: #D3E3FD;
+    --on-container: #041E49;
+    --ink: #1A1C1E;
+    --muted: #5F636B;
+    --line: #D2D6DF;
+    --bg: #F8F9FF;
+    --surface: #FFFFFF;
+    --mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    --font: "Roboto", -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background:
+      radial-gradient(1000px 520px at 82% -10%, #E4EDFF 0%, rgba(228, 237, 255, 0) 62%),
+      var(--bg);
+    color: var(--ink);
+    font-family: var(--font);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 42px 28px 56px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .mark {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 11px;
+    background: var(--primary);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .brand b {
+    font-size: 14px;
+    letter-spacing: -0.01em;
+  }
+
+  .brand span {
+    margin-left: 6px;
+    padding-left: 12px;
+    border-left: 1px solid var(--line);
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+  }
+
+  .hero {
+    max-width: 760px;
+    padding: 66px 0 44px;
+  }
+
+  .kicker {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  h1 {
+    margin: 16px 0 0;
+    font-size: clamp(38px, 5vw, 56px);
+    line-height: 1.02;
+    font-weight: 600;
+    letter-spacing: -0.045em;
+  }
+
+  .lede {
+    margin: 18px 0 0;
+    max-width: 60ch;
+    font-size: 15px;
+    line-height: 1.65;
+    color: var(--muted);
+  }
+
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+  }
+
+  .card {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 24px;
+    background: var(--surface);
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.24s cubic-bezier(0.2, 0, 0, 1),
+      box-shadow 0.24s cubic-bezier(0.2, 0, 0, 1), border-color 0.24s ease;
+  }
+
+  .card:hover {
+    transform: translateY(-4px);
+    border-color: #AECBFA;
+    box-shadow: 0 20px 44px rgba(16, 24, 40, 0.1);
+  }
+
+  .preview {
+    position: relative;
+    height: 232px;
+    border-bottom: 1px solid var(--line);
+    overflow: hidden;
+  }
+
+  .preview-desktop {
+    background: linear-gradient(160deg, #EDF3FE, #F9FBFF);
+  }
+
+  .d-rail {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    width: 16%;
+    padding: 14px 9px;
+    background: #fff;
+    border-right: 1px solid #DCE7F8;
+  }
+
+  .d-rail b {
+    width: 16px;
+    height: 16px;
+    margin-bottom: 4px;
+    border-radius: 5px;
+    background: #0B57D0;
+  }
+
+  .d-rail i {
+    width: 100%;
+    height: 8px;
+    border-radius: 4px;
+    background: #E7EDF7;
+  }
+
+  .d-rail i.on { background: #D3E3FD; }
+
+  .d-body {
+    position: absolute;
+    top: 0;
+    right: 25%;
+    bottom: 0;
+    left: 16%;
+    padding: 14px;
+  }
+
+  .d-title {
+    display: block;
+    width: 46%;
+    height: 10px;
+    border-radius: 3px;
+    background: #1A1C1E;
+    opacity: 0.85;
+  }
+
+  .d-sub {
+    display: block;
+    width: 64%;
+    height: 5px;
+    margin-top: 7px;
+    border-radius: 2px;
+    background: #AEBACD;
+  }
+
+  .d-hero {
+    display: block;
+    height: 58px;
+    margin-top: 11px;
+    border: 1px solid #C9DBF8;
+    border-radius: 11px;
+    background: linear-gradient(135deg, #DCE9FF, #F2F7FF);
+  }
+
+  .d-row {
+    display: flex;
+    gap: 6px;
+    height: 20px;
+    margin-top: 9px;
+  }
+
+  .d-row b {
+    flex: 1;
+    border: 1px solid #DCE5F2;
+    border-radius: 5px;
+    background: #fff;
+  }
+
+  .d-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5px;
+    margin-top: 8px;
+  }
+
+  .d-grid i {
+    height: 21px;
+    border: 1px solid #DCE5F2;
+    border-radius: 5px;
+    background: #fff;
+  }
+
+  .d-sheet {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 25%;
+    padding: 13px 9px;
+    background: #F2F6FD;
+    border-left: 1px solid #DCE5F2;
+  }
+
+  .d-sheet b {
+    display: block;
+    width: 58%;
+    height: 8px;
+    border-radius: 2px;
+    background: #1A1C1E;
+    opacity: 0.6;
+  }
+
+  .d-sheet i {
+    display: block;
+    height: 28px;
+    margin-top: 6px;
+    border-radius: 5px;
+    background: #fff;
+  }
+
+  .preview-mobile {
+    background: linear-gradient(160deg, #EEF3FE, #FAFCFF);
+  }
+
+  .phone {
+    position: absolute;
+    top: 18px;
+    left: 50%;
+    width: 132px;
+    height: 200px;
+    transform: translateX(-50%);
+    border: 6px solid #1D1D1F;
+    border-radius: 26px;
+    background: #fff;
+    overflow: hidden;
+  }
+
+  .phone-bar {
+    height: 14px;
+    background: #F3F6FC;
+    border-bottom: 1px solid #E1E7F0;
+  }
+
+  .phone-body {
+    padding: 8px;
+  }
+
+  .p-hero {
+    height: 44px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #DCE9FF, #F3F8FF);
+    border: 1px solid #C9DBF8;
+  }
+
+  .p-btns {
+    display: flex;
+    gap: 4px;
+    margin-top: 5px;
+  }
+
+  .p-btns b {
+    flex: 1;
+    height: 12px;
+    border-radius: 6px;
+    background: #0B57D0;
+  }
+
+  .p-btns b:first-child {
+    background: #D3E3FD;
+  }
+
+  .p-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    margin-top: 7px;
+  }
+
+  .p-grid i {
+    height: 18px;
+    border: 1px solid #E1E7F0;
+    border-radius: 5px;
+    background: #FAFBFF;
+  }
+
+  .p-tabs {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: flex;
+    justify-content: space-around;
+    height: 18px;
+    padding-top: 5px;
+    background: #fff;
+    border-top: 1px solid #E1E7F0;
+  }
+
+  .p-tabs i {
+    width: 9px;
+    height: 4px;
+    border-radius: 2px;
+    background: #C7D0DE;
+  }
+
+  .p-tabs i.on { background: #0B57D0; }
+
+  .card-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    padding: 22px 24px 24px;
+  }
+
+  .tag {
+    align-self: flex-start;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: #EDF1F8;
+    font-family: var(--mono);
+    font-size: 8.5px;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+  }
+
+  h2 {
+    margin: 12px 0 6px;
+    font-size: 21px;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+  }
+
+  .card p {
+    margin: 0;
+    font-size: 12.5px;
+    line-height: 1.65;
+    color: var(--muted);
+  }
+
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 14px;
+  }
+
+  .meta span {
+    padding: 3px 8px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    font-family: var(--mono);
+    font-size: 8.5px;
+    color: var(--muted);
+  }
+
+  .go {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid #EDF1F8;
+    color: var(--primary);
+    font-size: 12.5px;
+    font-weight: 600;
+  }
+
+  .go i {
+    font-style: normal;
+    transition: transform 0.22s cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  .card:hover .go i { transform: translateX(4px); }
+
+  .foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: 44px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+    font-family: var(--mono);
+    font-size: 9.5px;
+    color: var(--muted);
+  }
+
+  .foot a {
+    color: var(--primary);
+    text-underline-offset: 3px;
+  }
+
+  @media (max-width: 760px) {
+    .wrap { padding: 28px 18px 40px; }
+    .hero { padding: 46px 0 34px; }
+    h1 { font-size: 38px; }
+    .cards { grid-template-columns: 1fr; }
+    .preview { height: 220px; }
+    .foot { flex-direction: column; align-items: flex-start; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <a class="brand" href="index.html">
+    <span class="mark">C</span>
+    <b>CodeArts 网关</b>
+    <span>Two targets · One source</span>
+  </a>
+
+  <header class="hero">
+    <span class="kicker">Frontend deliverables</span>
+    <h1>同一套源码，<br>两种形态。</h1>
+    <p class="lede">Windows 端使用三栏控制台布局，手机端使用底部导航的单列布局。两端共享 core / service / ui / res，页面、状态与交互逻辑完全一致，只替换布局层。</p>
+  </header>
+
+  <section class="cards">
+    <a class="card" href="desktop/index.html">
+      <div class="preview preview-desktop">
+        <div class="d-rail">
+          <b></b><i class="on"></i><i></i><i></i><i></i><i></i><i></i>
+        </div>
+        <div class="d-body">
+          <span class="d-title"></span>
+          <span class="d-sub"></span>
+          <span class="d-hero"></span>
+          <span class="d-row"><b></b><b></b><b></b><b></b></span>
+          <span class="d-grid"><i></i><i></i><i></i><i></i></span>
+        </div>
+        <div class="d-sheet"><b></b><i></i><i></i></div>
+      </div>
+      <div class="card-body">
+        <span class="tag">WINDOWS / DESKTOP</span>
+        <h2>Windows 端</h2>
+        <p>导航栏 + 内容区 + 源码映射侧栏。适合宽屏窗口，信息密度高，保留页面切换与全部交互。</p>
+        <div class="meta"><span>三栏布局</span><span>1280+</span><span>Inspector</span></div>
+        <span class="go">打开 Windows 端 <i>→</i></span>
+      </div>
+    </a>
+
+    <a class="card" href="mobile/index.html">
+      <div class="preview preview-mobile">
+        <div class="phone">
+          <div class="phone-bar"></div>
+          <div class="phone-body">
+            <div class="p-hero"></div>
+            <div class="p-btns"><b></b><b></b></div>
+            <div class="p-grid"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          </div>
+          <div class="p-tabs"><i class="on"></i><i></i><i></i><i></i><i></i></div>
+        </div>
+      </div>
+      <div class="card-body">
+        <span class="tag">MOBILE / COMPACT</span>
+        <h2>手机端</h2>
+        <p>顶部标题 + 单列内容 + 底部 5 个 Tab。触控尺寸、安全区与单列卡片按移动端重新排布。</p>
+        <div class="meta"><span>单列</span><span>底部导航</span><span>safe-area</span></div>
+        <span class="go">打开手机端 <i>→</i></span>
+      </div>
+    </a>
+  </section>
+
+  <footer class="foot">
+    <span>CodeArts Gateway v1.9.18 · 双端前端</span>
+    <span>适配说明见 <a href="HANDOFF.md">HANDOFF.md</a></span>
+  </footer>
+</div>
+
+</body>
+</html>
