@@ -79,6 +79,7 @@ public class LoginActivity extends AppCompatActivity {
                 syncCookieFromWeb();
             }
         });
+        WebDownloadUtil.attach(this, webView);
         loadLogin();
 
         View fab = findViewById(R.id.fab_menu);

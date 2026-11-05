@@ -52,6 +52,7 @@ public class WebConsoleActivity extends AppCompatActivity {
         s.setUseWideViewPort(true);
 
         webView.setWebViewClient(new WebViewClient());
+        WebDownloadUtil.attach(this, webView);
         webView.setWebChromeClient(new WebChromeClient());
         webView.addJavascriptInterface(new WebBridge(this, webView), "CodeArtsNative");
         webView.loadUrl("file:///android_asset/mobile/index.html?native=1");

@@ -159,10 +159,12 @@ public final class Store {
             String p = part.trim();
             int eq = p.indexOf('=');
             String name = (eq > 0 ? p.substring(0, eq) : p).trim().toLowerCase(Locale.ROOT);
-            if (name.contains("cftk")) {
+            String value = eq > 0 ? p.substring(eq + 1).trim() : "";
+            if (name.contains("cftk") && value.length() >= 8) {
                 cftk = true;
             }
-            if (name.contains("session") || name.contains("hwwafses")) {
+            if ((name.contains("session") || name.contains("hwwafses"))
+                    && value.length() >= 4) {
                 session = true;
             }
         }
@@ -172,7 +174,7 @@ public final class Store {
     /** 记录一条 Cookie 历史（去重、最多 {@link #K_HISTORY_MAX} 条，新的在前）。 */
     public void addCookieHistory(String cookie) {
         String c = cookie == null ? "" : cookie.trim();
-        if (c.isEmpty()) {
+        if (c.isEmpty() || !isSessionCookie(c)) {
             return;
         }
         try {
@@ -188,7 +190,7 @@ public final class Store {
                     continue;
                 }
                 String cur = o.optString("cookie", "");
-                if (cur.isEmpty() || cur.equals(c)) {
+                if (cur.isEmpty() || cur.equals(c) || !isSessionCookie(cur)) {
                     continue;
                 }
                 out.put(o);
@@ -210,7 +212,7 @@ public final class Store {
                     continue;
                 }
                 String c = o.optString("cookie", "");
-                if (!c.isEmpty()) {
+                if (!c.isEmpty() && isSessionCookie(c)) {
                     list.add(new CookieHist(c, o.optLong("ts", 0)));
                 }
             }
