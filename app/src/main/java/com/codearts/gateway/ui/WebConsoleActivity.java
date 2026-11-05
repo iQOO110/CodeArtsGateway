@@ -16,7 +16,9 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.codearts.gateway.R;
 import com.codearts.gateway.core.ArtifactIndex;
+import com.codearts.gateway.core.DevCloudClient;
 import com.codearts.gateway.core.LogRing;
+import com.codearts.gateway.core.Store;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -36,6 +38,8 @@ public class WebConsoleActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_web_console);
         LogRing.attach(this);
+        DevCloudClient.setCookieSink(cookies ->
+                Store.get(getApplicationContext()).mergeSetCookies(cookies, true));
 
         webView = findViewById(R.id.webview);
         WebSettings s = webView.getSettings();

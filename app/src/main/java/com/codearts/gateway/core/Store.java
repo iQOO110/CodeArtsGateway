@@ -6,7 +6,10 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
 /** 本地存储：DevCloud 会话 Cookie、网关端口、局域网开关、网关密钥、模型缓存。 */
 public final class Store {
@@ -56,6 +59,114 @@ public final class Store {
         sp.edit().putString(K_COOKIE, cookie == null ? "" : cookie.trim())
                 .putLong(K_COOKIE_TIME, System.currentTimeMillis()).apply();
         addCookieHistory(cookie);
+    }
+
+    /** 合并登录页 CookieManager 返回的 Cookie 串；变化且含会话键才写。 */
+    public boolean mergeCookieString(String cookieHeader, boolean keepHistory) {
+        return mergeCookiePairs(parseCookiePairs(cookieHeader), keepHistory);
+    }
+
+    /** 合并上游 Set-Cookie 响应头；变化且含会话键才写。 */
+    public boolean mergeSetCookies(List<String> setCookieHeaders, boolean keepHistory) {
+        Map<String, String> updates = new LinkedHashMap<>();
+        if (setCookieHeaders != null) {
+            for (String header : setCookieHeaders) {
+                if (header == null) {
+                    continue;
+                }
+                int semi = header.indexOf(';');
+                String pair = (semi >= 0 ? header.substring(0, semi) : header).trim();
+                int eq = pair.indexOf('=');
+                if (eq <= 0) {
+                    continue;
+                }
+                String name = pair.substring(0, eq).trim();
+                if (!name.isEmpty()) {
+                    updates.put(name, pair.substring(eq + 1).trim());
+                }
+            }
+        }
+        return mergeCookiePairs(updates, keepHistory);
+    }
+
+    private boolean mergeCookiePairs(Map<String, String> updates, boolean keepHistory) {
+        if (updates == null || updates.isEmpty()) {
+            return false;
+        }
+        String old = getCookie();
+        Map<String, String> merged = parseCookiePairs(old);
+        boolean changed = false;
+        for (Map.Entry<String, String> e : updates.entrySet()) {
+            String prev = merged.get(e.getKey());
+            if (!e.getValue().equals(prev)) {
+                merged.put(e.getKey(), e.getValue());
+                changed = true;
+            }
+        }
+        if (!changed) {
+            return false;
+        }
+        StringBuilder sb = new StringBuilder();
+        for (Map.Entry<String, String> e : merged.entrySet()) {
+            if (sb.length() > 0) {
+                sb.append("; ");
+            }
+            sb.append(e.getKey()).append('=').append(e.getValue());
+        }
+        String next = sb.toString();
+        if (!isSessionCookie(next)) {
+            return false;
+        }
+        if (keepHistory && !old.isEmpty()) {
+            addCookieHistory(old);
+        }
+        sp.edit().putString(K_COOKIE, next)
+                .putLong(K_COOKIE_TIME, System.currentTimeMillis()).apply();
+        return true;
+    }
+
+    private static Map<String, String> parseCookiePairs(String header) {
+        Map<String, String> map = new LinkedHashMap<>();
+        if (header == null) {
+            return map;
+        }
+        for (String part : header.split(";")) {
+            String p = part.trim();
+            int eq = p.indexOf('=');
+            if (eq <= 0) {
+                continue;
+            }
+            String name = p.substring(0, eq).trim();
+            if (name.isEmpty() || isCookieAttr(name)) {
+                continue;
+            }
+            map.put(name, p.substring(eq + 1).trim());
+        }
+        return map;
+    }
+
+    private static boolean isCookieAttr(String name) {
+        String n = name.toLowerCase(Locale.ROOT);
+        return n.equals("path") || n.equals("domain") || n.equals("expires")
+                || n.equals("max-age") || n.equals("secure") || n.equals("httponly")
+                || n.equals("samesite");
+    }
+
+    private static boolean isSessionCookie(String all) {
+        boolean cftk = false;
+        boolean session = false;
+        for (String part : all.split(";")) {
+            String p = part.trim();
+            int eq = p.indexOf('=');
+            String name = (eq > 0 ? p.substring(0, eq) : p).trim().toLowerCase(Locale.ROOT);
+            if (name.contains("cftk")) {
+                cftk = true;
+            }
+            if (name.contains("session") || name.contains("hwwafses")) {
+                session = true;
+            }
+        }
+        return cftk && session;
     }
 
     /** 记录一条 Cookie 历史（去重、最多 {@link #K_HISTORY_MAX} 条，新的在前）。 */

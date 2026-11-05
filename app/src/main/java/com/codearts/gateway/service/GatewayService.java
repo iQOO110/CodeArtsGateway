@@ -12,6 +12,7 @@ import android.os.IBinder;
 
 import com.codearts.gateway.R;
 import com.codearts.gateway.core.AppConfig;
+import com.codearts.gateway.core.DevCloudClient;
 import com.codearts.gateway.core.GatewayServer;
 import com.codearts.gateway.core.LogRing;
 import com.codearts.gateway.core.Store;
@@ -64,6 +65,8 @@ public class GatewayService extends Service {
     public void onCreate() {
         super.onCreate();
         LogRing.attach(this);
+        DevCloudClient.setCookieSink(cookies ->
+                Store.get(getApplicationContext()).mergeSetCookies(cookies, true));
         createChannel();
         acquireWakeLock();
     }

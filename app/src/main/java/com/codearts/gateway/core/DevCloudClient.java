@@ -34,6 +34,17 @@ import java.util.List;
  */
 public final class DevCloudClient {
 
+    /** 上游 Set-Cookie 的接收端（由 Service/UI 注入，写入 Store）。 */
+    public interface CookieSink {
+        void onSetCookie(java.util.List<String> setCookieHeaders);
+    }
+
+    private static volatile CookieSink sCookieSink;
+
+    public static void setCookieSink(CookieSink sink) {
+        sCookieSink = sink;
+    }
+
     public static final String ORIGIN = "https://devcloud.cn-north-4.huaweicloud.com";
     public static final String UA = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36";
 
@@ -151,6 +162,24 @@ public final class DevCloudClient {
                 String loc = conn.getHeaderField("Location");
                 if (loc != null) {
                     resp.location = loc;
+                }
+                try {
+                    CookieSink sink = sCookieSink;
+                    if (sink != null) {
+                        java.util.List<String> setCookies = null;
+                        for (java.util.Map.Entry<String, java.util.List<String>> e
+                                : conn.getHeaderFields().entrySet()) {
+                            if (e.getKey() != null && "Set-Cookie".equalsIgnoreCase(e.getKey())) {
+                                setCookies = e.getValue();
+                                break;
+                            }
+                        }
+                        if (setCookies != null && !setCookies.isEmpty()) {
+                            sink.onSetCookie(setCookies);
+                        }
+                    }
+                } catch (Throwable ignore) {
+                    // Cookie 同步失败不影响请求
                 }
             }
             InputStream in = resp.code >= 400 ? conn.getErrorStream() : conn.getInputStream();

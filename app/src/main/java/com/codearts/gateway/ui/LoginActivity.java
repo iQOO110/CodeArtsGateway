@@ -68,7 +68,17 @@ public class LoginActivity extends AppCompatActivity {
         });
         webView.setVerticalScrollBarEnabled(true);
         webView.setOverScrollMode(View.OVER_SCROLL_ALWAYS);
-        webView.setWebViewClient(new WebViewClient());
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                syncCookieFromWeb();
+            }
+
+            @Override
+            public void doUpdateVisitedHistory(WebView view, String url, boolean isReload) {
+                syncCookieFromWeb();
+            }
+        });
         loadLogin();
 
         View fab = findViewById(R.id.fab_menu);
@@ -143,6 +153,17 @@ public class LoginActivity extends AppCompatActivity {
     private void saveFromWebView() {
         CookieManager.getInstance().flush();
         applyCookie(currentCookie(), false);
+    }
+
+    /** 网页 Cookie 刷新时静默更新 Store；不弹窗、不自动退出。 */
+    private void syncCookieFromWeb() {
+        String cookie = normalizeCookie(currentCookie());
+        if (!hasCftk(cookie) || !hasSessionKey(cookie)) {
+            return;
+        }
+        if (store.mergeCookieString(cookie, true)) {
+            LogRing.log("login", "检测到网页 Cookie 刷新，已自动更新");
+        }
     }
 
     private void showPasteDialog() {

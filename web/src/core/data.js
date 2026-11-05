@@ -4,8 +4,8 @@ window.App.data = (function () {
   const PROJECT = {
     name: "CodeArts 网关",
     en: "CodeArts Gateway",
-    version: "v1.9.28",
-    versionCode: 56,
+    version: "v1.9.29",
+    versionCode: 57,
     repo: "iQOO110/CodeArtsGateway",
     tagline: "把华为云码道包装成 OpenAI 兼容的本地网关",
     summary: "运行在 Android 上的本地 HTTP 网关：对上游伪装成 CodeArts 网页会话，对下游提供 /v1/chat/completions、/v1/models 等标准接口，并内置 function calling 垫片、工具上游转发与 MCP 客户端。"
